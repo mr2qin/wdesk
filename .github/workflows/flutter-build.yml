@@ -939,6 +939,11 @@ jobs:
           fi
           ./build.py --flutter --hwcodec --unix-file-copy-paste ${{ matrix.job.extra-build-args }}
 
+      - name: Ad-hoc sign WDesk app
+        if: env.MACOS_P12_BASE64 == '' && env.UPLOAD_ARTIFACT == 'true'
+        run: |
+          codesign --force --deep --sign - ./flutter/build/macos/Build/Products/Release/WDesk.app
+
       - name: create unsigned dmg
         if: env.UPLOAD_ARTIFACT == 'true'
         run: |

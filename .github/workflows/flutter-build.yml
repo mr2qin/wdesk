@@ -360,6 +360,13 @@ jobs:
           pip3 install requests argparse
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./rustdesk/
 
+      - name: Rename app executable for WDesk packaging
+        if: env.UPLOAD_ARTIFACT == 'true'
+        shell: pwsh
+        run: |
+          Remove-Item -Path ./rustdesk/WDesk.exe -Force -ErrorAction SilentlyContinue
+          Rename-Item -Path ./rustdesk/rustdesk.exe -NewName WDesk.exe
+
       - name: Build self-extracted executable
         shell: bash
         if: env.UPLOAD_ARTIFACT == 'true'
@@ -367,17 +374,10 @@ jobs:
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/rustdesk.exe
+          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/WDesk.exe
           popd
           mkdir -p ./SignOutput
-          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.exe
-
-      - name: Prepare WDesk MSI executable
-        if: env.UPLOAD_ARTIFACT == 'true'
-        shell: pwsh
-        run: |
-          Remove-Item -Path ./rustdesk/WDesk.exe -Force -ErrorAction SilentlyContinue
-          Rename-Item -Path ./rustdesk/rustdesk.exe -NewName WDesk.exe
+          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/WDesk-${{ env.VERSION }}-${{ matrix.job.arch }}-install.exe
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2
@@ -400,8 +400,8 @@ jobs:
           $msiPlatform = if ('${{ matrix.job.arch }}' -eq 'aarch64') { 'ARM64' } else { 'x64' }
           msbuild msi.sln -p:Configuration=Release -p:Platform=$msiPlatform /p:TargetVersion=Windows10
           $msi = Get-ChildItem ./Package/bin/*/Release/en-us/Package.msi | Select-Object -First 1
-          mv $msi.FullName ../../SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.msi
-          sha256sum ../../SignOutput/rustdesk-*.msi
+          mv $msi.FullName ../../SignOutput/WDesk-${{ env.VERSION }}-${{ matrix.job.arch }}.msi
+          sha256sum ../../SignOutput/WDesk-*.msi
 
       - name: Build pre-built MSI template
         # Two things this works around: preprocess.py rewrites res/msi in place, so the
@@ -464,8 +464,8 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            ./SignOutput/rustdesk-*.msi
-            ./SignOutput/rustdesk-*.exe
+            ./SignOutput/WDesk-*.msi
+            ./SignOutput/WDesk-*.exe
 
       - name: Upload WDesk Windows installers
         if: env.UPLOAD_ARTIFACT == 'true'
@@ -473,8 +473,8 @@ jobs:
         with:
           name: wdesk-windows-${{ matrix.job.arch }}
           path: |
-            ./SignOutput/rustdesk-*.msi
-            ./SignOutput/rustdesk-*.exe
+            ./SignOutput/WDesk-*.msi
+            ./SignOutput/WDesk-*.exe
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
@@ -637,7 +637,7 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            ./SignOutput/rustdesk-*.exe
+            ./SignOutput/WDesk-*.exe
 
   build-rustdesk-ios:
     if: false
